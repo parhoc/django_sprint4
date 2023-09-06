@@ -5,34 +5,12 @@ from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
-from django.views.generic import UpdateView
+from django.views.generic import UpdateView, ListView
 
 from .models import Category, Post
 from .forms import ProfileChangeForm
 
 User = get_user_model()
-
-
-def index(request: HttpRequest) -> HttpResponse:
-    """
-    Render start page with data from `posts`. Use blog/index.html template.
-
-    Parameters
-    ----------
-    request : HttpRequest
-        Http request.
-
-    Returns
-    -------
-    HttpResponse
-        Response with rendered page.
-    """
-    template = 'blog/index.html'
-    posts = Post.published_posts.all()[:settings.INDEX_POSTS_LIMIT]
-    context = {
-        'post_list': posts,
-    }
-    return render(request, template, context)
 
 
 def post_detail(request: HttpRequest, post_id: int) -> HttpResponse:
@@ -104,16 +82,14 @@ def category_posts(request: HttpRequest, category_slug: str) -> HttpResponse:
 def user_profile(request, username):
     template_name = 'blog/profile.html'
     user = User.objects.get(username=username)
-    posts = Post.objects.select_related(
+    posts = Post.published_posts.select_related(
         'author',
         'location',
         'category'
     ).filter(
-        author=user,
-        is_published=True,
-        pub_date__lte=timezone.now()
+        author=user
     )
-    paginator = Paginator(posts, 10)
+    paginator = Paginator(posts, settings.POSTS_LIMIT)
     page = request.GET.get('page')
     page_obj = paginator.get_page(page)
     context = {
@@ -137,3 +113,10 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
             username=kwargs['username']
         )
         return super().dispatch(request, *args, **kwargs)
+
+
+class IndexListView(ListView):
+    model = Post
+    paginate_by = settings.POSTS_LIMIT
+    template_name = 'blog/index.html'
+    queryset = Post.published_posts.all()

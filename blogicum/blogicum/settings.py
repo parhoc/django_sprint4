@@ -101,7 +101,7 @@ INTERNAL_IPS = [
     '127.0.0.1',
 ]
 
-INDEX_POSTS_LIMIT = 5
+POSTS_LIMIT = 10
 
 LOGIN_REDIRECT_URL = 'blog:index'
 
