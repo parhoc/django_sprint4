@@ -102,3 +102,7 @@ INTERNAL_IPS = [
 ]
 
 INDEX_POSTS_LIMIT = 5
+
+LOGIN_REDIRECT_URL = 'blog:index'
+
+LOGIN_URL = 'login'
