@@ -17,6 +17,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'debug_toolbar',
+    'django_bootstrap5',
+
     'blog.apps.BlogConfig',
     'pages.apps.PagesConfig',
 ]
