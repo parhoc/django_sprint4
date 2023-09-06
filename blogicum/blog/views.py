@@ -1,12 +1,13 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
-from django.views.generic import DetailView, ListView
-from django.core.paginator import Paginator
+from django.views.generic import UpdateView
 
 from .models import Category, Post
+from .forms import ProfileChangeForm
 
 User = get_user_model()
 
@@ -119,3 +120,19 @@ def user_profile(request, username):
         'page_obj': page_obj,
     }
     return render(request, template_name, context)
+
+
+class UserUpdateView(UpdateView):
+    model = User
+    template_name = 'blog/user.html'
+    form_class = ProfileChangeForm
+    slug_field = 'username'
+    slug_url_kwarg = 'username'
+
+    def dispatch(self, request, *args, **kwargs):
+        get_object_or_404(
+            User,
+            pk=request.user.pk,
+            username=kwargs['username']
+        )
+        return super().dispatch(request, *args, **kwargs)
