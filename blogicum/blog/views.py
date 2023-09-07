@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
-from django.views.generic import UpdateView, ListView
+from django.views.generic import UpdateView, ListView, DetailView
 
 from .models import Category, Post
 from .forms import ProfileChangeForm
@@ -72,9 +72,11 @@ def category_posts(request: HttpRequest, category_slug: str) -> HttpResponse:
         is_published=True,
         pub_date__lte=timezone.now()
     )
+    paginator = Paginator(posts, settings.POSTS_LIMIT)
+    page_obj = paginator.get_page(request.GET.get('page'))
     context = {
         'category': category,
-        'post_list': posts,
+        'page_obj': page_obj,
     }
     return render(request, template, context)
 
@@ -120,3 +122,10 @@ class IndexListView(ListView):
     paginate_by = settings.POSTS_LIMIT
     template_name = 'blog/index.html'
     queryset = Post.published_posts.all()
+
+
+class PostDetailView(DetailView):
+    model = Post
+    pk_url_kwarg = 'post_id'
+    queryset = Post.published_posts
+    template_name = 'blog/detail.html'
