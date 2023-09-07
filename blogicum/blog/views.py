@@ -1,17 +1,18 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.forms.models import BaseModelForm
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
                                   UpdateView)
 
-from .forms import PostForm, ProfileChangeForm
-from .models import Category, Post
+from .forms import CommentForm, PostForm, ProfileChangeForm
+from .models import Category, Comment, Post
 
 User = get_user_model()
 
@@ -132,6 +133,12 @@ class PostDetailView(DetailView):
     pk_url_kwarg = 'post_id'
     template_name = 'blog/detail.html'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["comments"] = self.object.comments.select_related('author')
+        context['form'] = CommentForm()
+        return context
+
 
 class PostModificationMixin:
     model = Post
@@ -176,3 +183,52 @@ class PostDeleteView(LoginRequiredMixin, PostModificationMixin, DeleteView):
 
     def get_success_url(self) -> str:
         return reverse_lazy('blog:profile', args=[self.object.author])
+
+
+@login_required
+def add_comment(request, post_id):
+    post = get_object_or_404(Post, pk=post_id)
+    form = CommentForm(request.POST)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.author = request.user
+        comment.post = post
+        comment.save()
+    return redirect('blog:post_detail', post_id=post_id)
+
+
+class CommentDeleteView(LoginRequiredMixin, DeleteView):
+    model = Comment
+    template_name = 'blog/comment.html'
+    pk_url_kwarg = 'comment_id'
+
+    def dispatch(self, request, *args, **kwargs):
+        get_object_or_404(
+            Comment,
+            pk=kwargs['comment_id'],
+            author=request.user,
+            post__pk=kwargs['post_id']
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self) -> str:
+        return reverse_lazy('blog:post_detail', args=[self.object.post.pk])
+
+
+class CommentUpdateView(LoginRequiredMixin, UpdateView):
+    model = Comment
+    template_name = 'blog/comment.html'
+    pk_url_kwarg = 'comment_id'
+    form_class = CommentForm
+
+    def dispatch(self, request, *args, **kwargs):
+        get_object_or_404(
+            Comment,
+            pk=kwargs['comment_id'],
+            author=request.user,
+            post__pk=kwargs['post_id']
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self) -> str:
+        return reverse_lazy('blog:post_detail', args=[self.object.post.pk])

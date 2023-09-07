@@ -166,3 +166,40 @@ class Post(BaseModel):
 
     def __str__(self) -> str:
         return self.title
+
+
+class Comment(models.Model):
+    """
+    Post comments model.
+
+    Fields:
+    * text(Text) - comment text;
+    * post(Int) - FK to related Post, cascade on delete;
+    * author(Int) - FK to comment author, cascade on delete;
+    * created_at(DateTime) - comment creation date, auto.
+    """
+
+    text = models.TextField(
+        'Текст',
+    )
+    post = models.ForeignKey(
+        Post,
+        models.CASCADE,
+        verbose_name='Публикация',
+        related_name='comments',
+    )
+    created_at = models.DateTimeField(
+        'Добавлено',
+        auto_now_add=True
+    )
+    author = models.ForeignKey(
+        User,
+        models.CASCADE,
+        verbose_name='Автор',
+        related_name='comments'
+    )
+
+    class Meta:
+        verbose_name = "комментарий"
+        verbose_name_plural = "Комментарии"
+        ordering = ('created_at',)
