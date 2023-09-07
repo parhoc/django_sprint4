@@ -86,7 +86,7 @@ def category_posts(request: HttpRequest, category_slug: str) -> HttpResponse:
 def user_profile(request, username):
     template_name = 'blog/profile.html'
     user = User.objects.get(username=username)
-    posts = Post.published_posts.select_related(
+    posts = Post.objects.select_related(
         'author',
         'location',
         'category'

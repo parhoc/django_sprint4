@@ -23,7 +23,10 @@ class ProfileChangeForm(UserChangeForm):
 class PostForm(ModelForm):
     class Meta:
         model = Post
-        exclude = ('author',)
+        exclude = (
+            'author',
+            'is_published',
+        )
         widgets = {
             'pub_date': DateInput({'type': 'date'}),
         }
