@@ -33,7 +33,7 @@
                   <img class="border-3 rounded img-fluid img-thumbnail mb-2" src="{{ object.image.url }}">
                 </a>
               {% endif %}
-              <p>{{ object.pub_date|date:"d E Y" }} | {% if object.location and form.location.is_published %}{{ object.location.name }}{% else %}Планета Земля{% endif %}<br>
+              <p>{{ object.pub_date|date:"d E Y" }} | {% if object.location and object.location.is_published %}{{ object.location.name }}{% else %}Планета Земля{% endif %}<br>
               <h3>{{ object.title }}</h3>
               <p>{{ object.text|linebreaksbr }}</p>
             </article>
