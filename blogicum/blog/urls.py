@@ -22,9 +22,9 @@ urlpatterns = [
     ),
     path(
         'posts/create/',
-        views.IndexListView.as_view(),
+        views.PostCreateView.as_view(),
         name='create_post'
-    ),  # to do
+    ),
     path(
         'profile/<slug:username>/',
         views.user_profile,

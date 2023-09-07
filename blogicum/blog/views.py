@@ -2,13 +2,15 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
+from django.forms.models import BaseModelForm
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import UpdateView, ListView, DetailView
+from django.views.generic import UpdateView, ListView, DetailView, CreateView
 
 from .models import Category, Post
-from .forms import ProfileChangeForm
+from .forms import ProfileChangeForm, PostForm
 
 User = get_user_model()
 
@@ -129,3 +131,16 @@ class PostDetailView(DetailView):
     pk_url_kwarg = 'post_id'
     queryset = Post.published_posts
     template_name = 'blog/detail.html'
+
+
+class PostCreateView(LoginRequiredMixin, CreateView):
+    model = Post
+    form_class = PostForm
+    template_name = 'blog/create.html'
+
+    def form_valid(self, form: BaseModelForm) -> HttpResponse:
+        form.instance.author = self.request.user
+        return super().form_valid(form)
+
+    def get_success_url(self) -> str:
+        return reverse_lazy('blog:profile', args=[self.request.user.username])
