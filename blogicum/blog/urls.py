@@ -6,15 +6,25 @@ app_name = 'blog'
 
 urlpatterns = [
     path(
-        'post/<int:post_id>/comment/<int:comment_id>/',
+        'posts/<int:post_id>/comment/<int:comment_id>/',
         views.IndexListView.as_view(),
         name='edit_comment'
     ),  # to do
     path(
-        'post/<int:post_id>/comment/',
+        'posts/<int:post_id>/comment/',
         views.IndexListView.as_view(),
         name='add_comment'
     ),  # to do
+    path(
+        'posts/<int:post_id>/edit/',
+        views.PostUpdateView.as_view(),
+        name='edit_post'
+    ),
+    path(
+        'posts/<int:post_id>/delete/',
+        views.PostDeleteView.as_view(),
+        name='delete_post'
+    ),
     path(
         'posts/<int:post_id>/',
         views.PostDetailView.as_view(),

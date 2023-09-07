@@ -7,10 +7,11 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import UpdateView, ListView, DetailView, CreateView
+from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
+                                  UpdateView)
 
+from .forms import PostForm, ProfileChangeForm
 from .models import Category, Post
-from .forms import ProfileChangeForm, PostForm
 
 User = get_user_model()
 
@@ -129,18 +130,49 @@ class IndexListView(ListView):
 class PostDetailView(DetailView):
     model = Post
     pk_url_kwarg = 'post_id'
-    queryset = Post.published_posts
     template_name = 'blog/detail.html'
 
 
-class PostCreateView(LoginRequiredMixin, CreateView):
+class PostModificationMixin:
     model = Post
     form_class = PostForm
     template_name = 'blog/create.html'
 
+
+class PostCreateView(LoginRequiredMixin, PostModificationMixin, CreateView):
     def form_valid(self, form: BaseModelForm) -> HttpResponse:
         form.instance.author = self.request.user
         return super().form_valid(form)
 
     def get_success_url(self) -> str:
-        return reverse_lazy('blog:profile', args=[self.request.user.username])
+        return reverse_lazy('blog:profile', args=[self.object.author])
+
+
+class PostUpdateView(LoginRequiredMixin, PostModificationMixin, UpdateView):
+    pk_url_kwarg = 'post_id'
+
+    def get_success_url(self) -> str:
+        return reverse_lazy('blog:post_detail', args=[self.object.pk])
+
+    def dispatch(self, request, *args, **kwargs):
+        get_object_or_404(
+            Post,
+            pk=kwargs['post_id'],
+            author=self.request.user
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+
+class PostDeleteView(LoginRequiredMixin, PostModificationMixin, DeleteView):
+    pk_url_kwarg = 'post_id'
+
+    def dispatch(self, request, *args, **kwargs):
+        get_object_or_404(
+            Post,
+            pk=kwargs['post_id'],
+            author=self.request.user
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self) -> str:
+        return reverse_lazy('blog:profile', args=[self.object.author])
