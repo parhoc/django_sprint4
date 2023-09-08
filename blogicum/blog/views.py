@@ -150,11 +150,12 @@ class PostModificationMixin:
     pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(
+        post = get_object_or_404(
             Post,
             pk=kwargs['post_id'],
-            author=self.request.user
         )
+        if post.author != request.user:
+            return redirect('blog:post_detail', post_id=post.pk)
         return super().dispatch(request, *args, **kwargs)
 
 
