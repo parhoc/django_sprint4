@@ -4,13 +4,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.forms.models import BaseModelForm
-from django.http import HttpRequest, HttpResponse
+from django.http import (Http404, HttpRequest, HttpResponse,
+                         HttpResponseRedirect)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
                                   UpdateView)
-from django.http import Http404
 
 from .forms import CommentForm, PostForm, ProfileChangeForm
 from .models import Category, Comment, Post
@@ -59,17 +59,32 @@ def category_posts(request: HttpRequest, category_slug: str) -> HttpResponse:
     return render(request, template, context)
 
 
-def user_profile(request, username):
+def user_profile(request: HttpRequest, username: str) -> HttpResponse:
+    """
+    User profile view function.
+
+    Use blog/profile.html template.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        Http request.
+    username : str
+        User login.
+
+    Returns
+    -------
+    HttpResponse
+        Response with rendered page.
+    """
     template_name = 'blog/profile.html'
     user = get_object_or_404(User, username=username)
-    posts = Post.objects.select_related(
+    posts = user.posts.select_related(
         'author',
         'location',
         'category'
     ).prefetch_related(
         'comments'
-    ).filter(
-        author=user
     )
     paginator = Paginator(posts, settings.POSTS_LIMIT)
     page = request.GET.get('page')
@@ -82,6 +97,12 @@ def user_profile(request, username):
 
 
 class UserUpdateView(LoginRequiredMixin, UpdateView):
+    """
+    User update class view for profile change page.
+
+    Use blog/user.html template. Available only to profile owner.
+    """
+
     model = User
     template_name = 'blog/user.html'
     form_class = ProfileChangeForm
@@ -101,6 +122,13 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
 
 class IndexListView(ListView):
+    """
+    Posts list class view for index page.
+
+    Use blog/index.html template. Return all posts with `is_published` is true
+    for `Post`, `Location`, `Category` and `pub_date` <= now.
+    """
+
     model = Post
     paginate_by = settings.POSTS_LIMIT
     template_name = 'blog/index.html'
@@ -108,6 +136,14 @@ class IndexListView(ListView):
 
 
 class PostDetailView(DetailView):
+    """
+    Class view for post detail page.
+
+    If post has true for `Post`, `Location`, `Category` and `pub_date` <= now,
+    than everyone can see post. Otherwise only the author has access to the
+    post.
+    """
+
     model = Post
     pk_url_kwarg = 'post_id'
     template_name = 'blog/detail.html'
@@ -140,6 +176,10 @@ class PostBaseMixin:
 
 
 class PostModificationMixin:
+    """
+    Add redirect for not post authors.
+    """
+
     pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):
@@ -147,13 +187,18 @@ class PostModificationMixin:
             Post,
             pk=kwargs['post_id'],
         )
-        # redirect if not author
         if post.author != request.user:
             return redirect('blog:post_detail', post_id=post.pk)
         return super().dispatch(request, *args, **kwargs)
 
 
 class PostCreateView(LoginRequiredMixin, PostBaseMixin, CreateView):
+    """
+    Post creation class view.
+
+    Available only to logged in users.
+    """
+
     def form_valid(self, form: BaseModelForm) -> HttpResponse:
         form.instance.author = self.request.user
         return super().form_valid(form)
@@ -164,18 +209,49 @@ class PostCreateView(LoginRequiredMixin, PostBaseMixin, CreateView):
 
 class PostUpdateView(LoginRequiredMixin, PostBaseMixin, PostModificationMixin,
                      UpdateView):
+    """
+    Update class view for post edit page.
+
+    Only post author has access to it. Redirect other users to posts detail
+    page.
+    """
+
     def get_success_url(self) -> str:
         return reverse_lazy('blog:post_detail', args=[self.object.pk])
 
 
 class PostDeleteView(LoginRequiredMixin, PostBaseMixin, PostModificationMixin,
                      DeleteView):
+    """
+    Delete class view for post delete page.
+
+    Only post author has access to it. Redirect other users to posts detail
+    page.
+    """
+
     def get_success_url(self) -> str:
         return reverse_lazy('blog:profile', args=[self.object.author])
 
 
 @login_required
-def add_comment(request, post_id):
+def add_comment(request: HttpRequest, post_id: int) -> HttpResponseRedirect:
+    """
+    Comment creation view function.
+
+    Available only to logged in users.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        Http request.
+    post_id : str
+        Post pk.
+
+    Returns
+    -------
+    HttpResponseRedirect
+        Redirect response to post detail page.
+    """
     post = get_object_or_404(Post, pk=post_id)
     form = CommentForm(request.POST)
     if form.is_valid():
@@ -205,8 +281,19 @@ class CommentMixin:
 
 
 class CommentDeleteView(LoginRequiredMixin, CommentMixin, DeleteView):
+    """
+    Delete class view for comment delete page.
+
+    Only comment author has access to it.
+    """
+
     pass
 
 
 class CommentUpdateView(LoginRequiredMixin, CommentMixin, UpdateView):
+    """
+    Update class view for comment edit page.
+
+    Only comment author has access to it.
+    """
     form_class = CommentForm
