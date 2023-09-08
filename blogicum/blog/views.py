@@ -160,11 +160,11 @@ class PostDetailView(DetailView):
             Post,
             pk=kwargs['post_id']
         )
-        if ((post.is_published and
-             post.category.is_published and
-             post.location.is_published and
-             post.pub_date <= timezone.now()) or
-           post.author == request.user):
+        if ((post.is_published
+             and post.category.is_published
+             and post.location.is_published
+             and post.pub_date <= timezone.now())
+           or post.author == request.user):
             return super().dispatch(request, *args, **kwargs)
         raise Http404()
 
