@@ -156,6 +156,11 @@ class Post(BaseModel):
         null=True,
         related_name='posts'
     )
+    image = models.ImageField(
+        'Изображение',
+        blank=True,
+        upload_to='post_images'
+    )
     objects = models.Manager()
     published_posts = PublishedPostsManager()
 
