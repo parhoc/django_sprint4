@@ -18,33 +18,6 @@ from .models import Category, Comment, Post
 User = get_user_model()
 
 
-def post_detail(request: HttpRequest, post_id: int) -> HttpResponse:
-    """
-    Render page with selected post detail. Use blog/detail.html template.
-
-    Parameters
-    ----------
-    request : HttpRequest
-        Http request.
-    post_id : int
-        Post id.
-
-    Returns
-    -------
-    HttpResponse
-        Response with rendered page.
-    """
-    template = 'blog/detail.html'
-    post = get_object_or_404(
-        Post.published_posts,
-        pk=post_id
-    )
-    context = {
-        'post': post,
-    }
-    return render(request, template, context)
-
-
 def category_posts(request: HttpRequest, category_slug: str) -> HttpResponse:
     """
     Render page with posts wich have `category_slug` category.
@@ -93,6 +66,8 @@ def user_profile(request, username):
         'author',
         'location',
         'category'
+    ).prefetch_related(
+        'comments'
     ).filter(
         author=user
     )
@@ -129,13 +104,14 @@ class IndexListView(ListView):
     model = Post
     paginate_by = settings.POSTS_LIMIT
     template_name = 'blog/index.html'
-    queryset = Post.published_posts.all()
+    queryset = Post.published_posts.prefetch_related('comments')
 
 
 class PostDetailView(DetailView):
     model = Post
     pk_url_kwarg = 'post_id'
     template_name = 'blog/detail.html'
+    queryset = Post.objects.select_related('location', 'category', 'author')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
