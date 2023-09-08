@@ -104,7 +104,8 @@ class PublishedPostsManager(models.Manager):
         return queryset.filter(
             pub_date__lte=timezone.now(),
             is_published=True,
-            category__is_published=True
+            category__is_published=True,
+            location__is_published=True
         )
 
 
@@ -171,6 +172,9 @@ class Post(BaseModel):
 
     def __str__(self) -> str:
         return self.title
+
+    def comment_count(self):
+        return self.comments.count()
 
 
 class Comment(models.Model):

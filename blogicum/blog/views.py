@@ -10,6 +10,7 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
                                   UpdateView)
+from django.http import Http404
 
 from .forms import CommentForm, PostForm, ProfileChangeForm
 from .models import Category, Comment, Post
@@ -87,7 +88,7 @@ def category_posts(request: HttpRequest, category_slug: str) -> HttpResponse:
 
 def user_profile(request, username):
     template_name = 'blog/profile.html'
-    user = User.objects.get(username=username)
+    user = get_object_or_404(User, username=username)
     posts = Post.objects.select_related(
         'author',
         'location',
@@ -120,6 +121,9 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         )
         return super().dispatch(request, *args, **kwargs)
 
+    def get_success_url(self) -> str:
+        return reverse_lazy('blog:profile', args=[self.object.username])
+
 
 class IndexListView(ListView):
     model = Post
@@ -139,6 +143,19 @@ class PostDetailView(DetailView):
         context['form'] = CommentForm()
         return context
 
+    def dispatch(self, request, *args, **kwargs):
+        post = get_object_or_404(
+            Post,
+            pk=kwargs['post_id']
+        )
+        if ((post.is_published and
+             post.category.is_published and
+             post.location.is_published and
+             post.pub_date <= timezone.now()) or
+           post.author == request.user):
+            return super().dispatch(request, *args, **kwargs)
+        raise Http404()
+
 
 class PostBaseMixin:
     model = Post
@@ -154,6 +171,7 @@ class PostModificationMixin:
             Post,
             pk=kwargs['post_id'],
         )
+        # redirect if not author
         if post.author != request.user:
             return redirect('blog:post_detail', post_id=post.pk)
         return super().dispatch(request, *args, **kwargs)
