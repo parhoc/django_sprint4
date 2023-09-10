@@ -1,13 +1,11 @@
-from typing import Any
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
-from django.db.models import Q, QuerySet, Model
+from django.db.models import Q
 from django.forms.models import BaseModelForm
-from django.http import (Http404, HttpRequest, HttpResponse,
-                         HttpResponseRedirect)
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -16,6 +14,11 @@ from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
 
 from .forms import CommentForm, PostForm, ProfileChangeForm
 from .models import Category, Comment, Post
+
+IS_PUBLISHED_TRUE = (Q(pub_date__lte=timezone.now())
+                     & Q(is_published=True)
+                     & Q(category__is_published=True)
+                     & Q(location__is_published=True))
 
 User = get_user_model()
 
@@ -87,10 +90,7 @@ def user_profile(request: HttpRequest, username: str) -> HttpResponse:
     ).prefetch_related(
         'comments'
     ).filter(
-        (Q(pub_date__lte=timezone.now())
-         & Q(is_published=True)
-         & Q(category__is_published=True)
-         & Q(location__is_published=True))
+        IS_PUBLISHED_TRUE
         | Q(author__username=request.user.username)
     )
     paginator = Paginator(posts, settings.POSTS_LIMIT)
@@ -131,7 +131,6 @@ class IndexListView(ListView):
     for `Post`, `Location`, `Category` and `pub_date` <= now.
     """
 
-    model = Post
     paginate_by = settings.POSTS_LIMIT
     template_name = 'blog/index.html'
     queryset = Post.published_posts.prefetch_related('comments')
@@ -146,7 +145,6 @@ class PostDetailView(DetailView):
     post.
     """
 
-    model = Post
     pk_url_kwarg = 'post_id'
     template_name = 'blog/detail.html'
     queryset = Post.objects.select_related('location', 'category', 'author')
@@ -157,18 +155,17 @@ class PostDetailView(DetailView):
         context['form'] = CommentForm()
         return context
 
-    def dispatch(self, request, *args, **kwargs):
-        post = get_object_or_404(
-            Post,
-            pk=kwargs['post_id']
+    def get_object(self, queryset=None):
+        if queryset is None:
+            queryset = self.get_queryset()
+        pk = self.kwargs[self.pk_url_kwarg]
+        obj = get_object_or_404(
+            queryset,
+            IS_PUBLISHED_TRUE
+            | Q(author__username=self.request.user.username),
+            pk=pk
         )
-        if ((post.is_published
-             and post.category.is_published
-             and post.location.is_published
-             and post.pub_date <= timezone.now())
-           or post.author == request.user):
-            return super().dispatch(request, *args, **kwargs)
-        raise Http404()
+        return obj
 
 
 class PostBaseMixin:
@@ -177,21 +174,24 @@ class PostBaseMixin:
     template_name = 'blog/create.html'
 
 
-class PostModificationMixin:
+class PostModificationMixin(UserPassesTestMixin):
     """
     Add redirect for not post authors.
     """
 
     pk_url_kwarg = 'post_id'
 
-    def dispatch(self, request, *args, **kwargs):
-        post = get_object_or_404(
-            Post,
-            pk=kwargs['post_id'],
-        )
-        if post.author != request.user:
-            return redirect('blog:post_detail', post_id=post.pk)
-        return super().dispatch(request, *args, **kwargs)
+    def test_func(self) -> bool:
+        obj = self.get_object()
+        return self.request.user == obj.author
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            return redirect(
+                'blog:post_detail',
+                post_id=self.kwargs[self.pk_url_kwarg]
+            )
+        return super().handle_no_permission()
 
 
 class PostCreateView(LoginRequiredMixin, PostBaseMixin, CreateView):
