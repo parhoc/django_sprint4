@@ -1,8 +1,10 @@
+from typing import Any
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
+from django.db.models import Q, QuerySet, Model
 from django.forms.models import BaseModelForm
 from django.http import (Http404, HttpRequest, HttpResponse,
                          HttpResponseRedirect)
@@ -84,14 +86,13 @@ def user_profile(request: HttpRequest, username: str) -> HttpResponse:
         'category'
     ).prefetch_related(
         'comments'
+    ).filter(
+        (Q(pub_date__lte=timezone.now())
+         & Q(is_published=True)
+         & Q(category__is_published=True)
+         & Q(location__is_published=True))
+        | Q(author__username=request.user.username)
     )
-    if not request.user == user:
-        posts = posts.filter(
-            pub_date__lte=timezone.now(),
-            is_published=True,
-            category__is_published=True,
-            location__is_published=True
-        )
     paginator = Paginator(posts, settings.POSTS_LIMIT)
     page = request.GET.get('page')
     page_obj = paginator.get_page(page)
@@ -102,7 +103,7 @@ def user_profile(request: HttpRequest, username: str) -> HttpResponse:
     return render(request, template_name, context)
 
 
-class UserUpdateView(LoginRequiredMixin, UpdateView):
+class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     """
     User update class view for profile change page.
 
@@ -115,13 +116,8 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
     slug_field = 'username'
     slug_url_kwarg = 'username'
 
-    def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(
-            User,
-            pk=request.user.pk,
-            username=kwargs['username']
-        )
-        return super().dispatch(request, *args, **kwargs)
+    def test_func(self):
+        return self.request.user.username == self.kwargs['username']
 
     def get_success_url(self) -> str:
         return reverse_lazy('blog:profile', args=[self.object.username])

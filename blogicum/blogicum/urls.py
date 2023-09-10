@@ -27,6 +27,5 @@ if settings.DEBUG:
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-handler403 = 'pages.views.csrf_failure_403'
 handler404 = 'pages.views.page_not_found_404'
 handler500 = 'pages.views.server_error_500'
