@@ -162,6 +162,7 @@ class Post(BaseModel):
         blank=True,
         upload_to='post_images'
     )
+
     objects = models.Manager()
     published_posts = PublishedPostsManager()
 

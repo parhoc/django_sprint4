@@ -80,12 +80,18 @@ def user_profile(request: HttpRequest, username: str) -> HttpResponse:
     template_name = 'blog/profile.html'
     user = get_object_or_404(User, username=username)
     posts = user.posts.select_related(
-        'author',
         'location',
         'category'
     ).prefetch_related(
         'comments'
     )
+    if not request.user == user:
+        posts = posts.filter(
+            pub_date__lte=timezone.now(),
+            is_published=True,
+            category__is_published=True,
+            location__is_published=True
+        )
     paginator = Paginator(posts, settings.POSTS_LIMIT)
     page = request.GET.get('page')
     page_obj = paginator.get_page(page)
