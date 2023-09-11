@@ -3,7 +3,6 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms.models import BaseModelForm
 from django.http import HttpResponse
@@ -15,6 +14,7 @@ from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
 
 from .forms import CommentForm, PostForm, ProfileChangeForm
 from .models import Category, Comment, Post
+from .utils import get_page_obj
 
 IS_PUBLISHED_TRUE = (Q(pub_date__lte=timezone.now())
                      & Q(is_published=True)
@@ -49,9 +49,8 @@ class CategoryDetailView(DetailView):
         ).filter(
             IS_PUBLISHED_TRUE
         )
-        paginator = Paginator(posts, settings.POSTS_LIMIT)
         page = self.request.GET.get('page')
-        page_obj = paginator.get_page(page)
+        page_obj = get_page_obj(posts, page)
         context['page_obj'] = page_obj
         return context
 
@@ -77,9 +76,8 @@ class UserDetailView(UserMixin, DetailView):
             IS_PUBLISHED_TRUE
             | Q(author__username=self.request.user.username)
         )
-        paginator = Paginator(posts, settings.POSTS_LIMIT)
         page = self.request.GET.get('page')
-        page_obj = paginator.get_page(page)
+        page_obj = get_page_obj(posts, page)
         context['page_obj'] = page_obj
         return context
 
