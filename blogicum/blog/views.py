@@ -2,14 +2,13 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms.models import BaseModelForm
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
                                   UpdateView)
@@ -215,33 +214,18 @@ class PostDeleteView(LoginRequiredMixin, PostBaseMixin, PostModificationMixin,
         return reverse_lazy('blog:profile', args=[self.object.author])
 
 
-@login_required
-def add_comment(request: HttpRequest, post_id: int) -> HttpResponseRedirect:
-    """
-    Comment creation view function.
+class CommentCreateView(LoginRequiredMixin, CreateView):
+    model = Comment
+    form_class = CommentForm
 
-    Available only to logged in users.
+    def form_valid(self, form):
+        post = get_object_or_404(Post, pk=self.kwargs['post_id'])
+        form.instance.author = self.request.user
+        form.instance.post = post
+        return super().form_valid(form)
 
-    Parameters
-    ----------
-    request : HttpRequest
-        Http request.
-    post_id : str
-        Post pk.
-
-    Returns
-    -------
-    HttpResponseRedirect
-        Redirect response to post detail page.
-    """
-    post = get_object_or_404(Post, pk=post_id)
-    form = CommentForm(request.POST)
-    if form.is_valid():
-        comment = form.save(commit=False)
-        comment.author = request.user
-        comment.post = post
-        comment.save()
-    return redirect('blog:post_detail', post_id=post_id)
+    def get_success_url(self):
+        return reverse('blog:post_detail', args=[self.object.post.pk])
 
 
 class CommentMixin:
