@@ -62,6 +62,12 @@ class UserMixin:
 
 
 class UserDetailView(UserMixin, DetailView):
+    """
+    User profile detail view.
+
+    Profile owner can see all posts while other users can see only published.
+    """
+
     context_object_name = 'profile'
     template_name = 'blog/profile.html'
 
@@ -213,6 +219,12 @@ class PostDeleteView(LoginRequiredMixin, PostBaseMixin, PostModificationMixin,
 
 
 class CommentCreateView(LoginRequiredMixin, CreateView):
+    """
+    Comment add view.
+
+    Available only to logged in users.
+    """
+
     model = Comment
     form_class = CommentForm
 
