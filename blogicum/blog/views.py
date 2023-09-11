@@ -269,14 +269,16 @@ class CommentMixin:
     template_name = 'blog/comment.html'
     pk_url_kwarg = 'comment_id'
 
-    def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(
-            Comment,
-            pk=kwargs['comment_id'],
-            author=request.user,
-            post__pk=kwargs['post_id']
+    def get_object(self, queryset=None):
+        if queryset is None:
+            queryset = self.get_queryset()
+        obj = get_object_or_404(
+            queryset,
+            pk=self.kwargs['comment_id'],
+            author=self.request.user,
+            post__pk=self.kwargs['post_id']
         )
-        return super().dispatch(request, *args, **kwargs)
+        return obj
 
     def get_success_url(self) -> str:
         return reverse_lazy('blog:post_detail', args=[self.object.post.pk])
