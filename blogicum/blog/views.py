@@ -57,12 +57,15 @@ class CategoryDetailView(DetailView):
         return context
 
 
-class UserDetailView(DetailView):
+class UserMixin:
     model = User
-    template_name = 'blog/profile.html'
     slug_url_kwarg = 'username'
     slug_field = 'username'
+
+
+class UserDetailView(UserMixin, DetailView):
     context_object_name = 'profile'
+    template_name = 'blog/profile.html'
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -82,18 +85,16 @@ class UserDetailView(DetailView):
         return context
 
 
-class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UserMixin,
+                     UpdateView):
     """
     User update class view for profile change page.
 
     Use blog/user.html template. Available only to profile owner.
     """
 
-    model = User
-    template_name = 'blog/user.html'
     form_class = ProfileChangeForm
-    slug_field = 'username'
-    slug_url_kwarg = 'username'
+    template_name = 'blog/user.html'
 
     def test_func(self):
         return self.request.user.username == self.kwargs['username']
