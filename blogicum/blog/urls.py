@@ -42,7 +42,7 @@ urlpatterns = [
     ),
     path(
         'profile/<slug:username>/',
-        views.user_profile,
+        views.UserDetailView.as_view(),
         name='profile'
     ),
     path(
@@ -52,7 +52,7 @@ urlpatterns = [
     ),
     path(
         'category/<slug:category_slug>/',
-        views.category_posts,
+        views.CategoryDetailView.as_view(),
         name='category_posts'
     ),
     path(

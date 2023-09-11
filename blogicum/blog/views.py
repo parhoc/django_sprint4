@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -6,7 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms.models import BaseModelForm
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
@@ -23,84 +25,61 @@ IS_PUBLISHED_TRUE = (Q(pub_date__lte=timezone.now())
 User = get_user_model()
 
 
-def category_posts(request: HttpRequest, category_slug: str) -> HttpResponse:
-    """
-    Render page with posts wich have `category_slug` category.
+class CategoryDetailView(DetailView):
+    model = Category
+    slug_url_kwarg = 'category_slug'
+    template_name = 'blog/category.html'
 
-    Use blog/category.html template.
+    def get_object(self, queryset=None):
+        if queryset is None:
+            queryset = self.get_queryset()
+        obj = get_object_or_404(
+            queryset,
+            is_published=True,
+            slug=self.kwargs[self.slug_url_kwarg]
+        )
+        return obj
 
-    Parameters
-    ----------
-    request : HttpRequest
-        Http request.
-    category_slug : str
-        Category name.
-
-    Returns
-    -------
-    HttpResponse
-        Response with rendered page.
-    """
-    template = 'blog/category.html'
-    category = get_object_or_404(
-        Category,
-        slug=category_slug,
-        is_published=True,
-    )
-    posts = category.posts.select_related(
-        'location',
-        'category',
-        'author'
-    ).filter(
-        is_published=True,
-        pub_date__lte=timezone.now()
-    )
-    paginator = Paginator(posts, settings.POSTS_LIMIT)
-    page_obj = paginator.get_page(request.GET.get('page'))
-    context = {
-        'category': category,
-        'page_obj': page_obj,
-    }
-    return render(request, template, context)
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        posts = self.object.posts.select_related(
+            'location',
+            'author',
+        ).prefetch_related(
+            'comments'
+        ).filter(
+            IS_PUBLISHED_TRUE
+        )
+        paginator = Paginator(posts, settings.POSTS_LIMIT)
+        page = self.request.GET.get('page')
+        page_obj = paginator.get_page(page)
+        context['page_obj'] = page_obj
+        return context
 
 
-def user_profile(request: HttpRequest, username: str) -> HttpResponse:
-    """
-    User profile view function.
-
-    Use blog/profile.html template.
-
-    Parameters
-    ----------
-    request : HttpRequest
-        Http request.
-    username : str
-        User login.
-
-    Returns
-    -------
-    HttpResponse
-        Response with rendered page.
-    """
+class UserDetailView(DetailView):
+    model = User
     template_name = 'blog/profile.html'
-    user = get_object_or_404(User, username=username)
-    posts = user.posts.select_related(
-        'location',
-        'category'
-    ).prefetch_related(
-        'comments'
-    ).filter(
-        IS_PUBLISHED_TRUE
-        | Q(author__username=request.user.username)
-    )
-    paginator = Paginator(posts, settings.POSTS_LIMIT)
-    page = request.GET.get('page')
-    page_obj = paginator.get_page(page)
-    context = {
-        'profile': user,
-        'page_obj': page_obj,
-    }
-    return render(request, template_name, context)
+    slug_url_kwarg = 'username'
+    slug_field = 'username'
+    context_object_name = 'profile'
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        posts = self.object.posts.select_related(
+            'location',
+            'category'
+        ).prefetch_related(
+            'comments'
+        ).filter(
+            IS_PUBLISHED_TRUE
+            | Q(author__username=self.request.user.username)
+        )
+        paginator = Paginator(posts, settings.POSTS_LIMIT)
+        page = self.request.GET.get('page')
+        page_obj = paginator.get_page(page)
+        context['page_obj'] = page_obj
+        return context
 
 
 class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
