@@ -14,7 +14,6 @@ from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
 
 from .forms import CommentForm, PostForm, ProfileChangeForm
 from .models import Category, Comment, Post
-from .utils import get_page_obj
 
 IS_PUBLISHED_TRUE = (Q(pub_date__lte=timezone.now())
                      & Q(is_published=True)
@@ -24,80 +23,84 @@ IS_PUBLISHED_TRUE = (Q(pub_date__lte=timezone.now())
 User = get_user_model()
 
 
-class CategoryDetailView(DetailView):
-    model = Category
+class CategoryListView(ListView):
+    """
+    List view for posts with given category.
+
+    Display only published posts. Return 404 error if `category.is_published`
+    is False.
+    """
+
+    queryset = Post.published_posts.prefetch_related('comments')
     slug_url_kwarg = 'category_slug'
     template_name = 'blog/category.html'
+    paginate_by = settings.POSTS_LIMIT
 
-    def get_object(self, queryset=None):
-        if queryset is None:
-            queryset = self.get_queryset()
-        obj = get_object_or_404(
-            queryset,
-            is_published=True,
-            slug=self.kwargs[self.slug_url_kwarg]
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = queryset.filter(
+            category__slug=self.kwargs[self.slug_url_kwarg]
         )
-        return obj
+        return queryset
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        posts = self.object.posts.select_related(
-            'location',
-            'author',
-        ).prefetch_related(
-            'comments'
-        ).filter(
-            IS_PUBLISHED_TRUE
+        context['category'] = get_object_or_404(
+            Category,
+            slug=self.kwargs[self.slug_url_kwarg],
+            is_published=True
         )
-        page = self.request.GET.get('page')
-        page_obj = get_page_obj(posts, page)
-        context['page_obj'] = page_obj
         return context
 
 
-class UserMixin:
-    model = User
-    slug_url_kwarg = 'username'
-    slug_field = 'username'
-
-
-class UserDetailView(UserMixin, DetailView):
+class UserListView(ListView):
     """
     User profile detail view.
 
     Profile owner can see all posts while other users can see only published.
     """
 
-    context_object_name = 'profile'
+    slug_url_kwarg = 'username'
     template_name = 'blog/profile.html'
+    paginate_by = settings.POSTS_LIMIT
+    queryset = Post.objects.select_related(
+        'location',
+        'category',
+        'author'
+    ).prefetch_related(
+        'comments'
+    )
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = queryset.filter(
+            IS_PUBLISHED_TRUE
+            | Q(author__username=self.request.user.username),
+            author__username=self.kwargs[self.slug_url_kwarg]
+        )
+        return queryset
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        posts = self.object.posts.select_related(
-            'location',
-            'category'
-        ).prefetch_related(
-            'comments'
-        ).filter(
-            IS_PUBLISHED_TRUE
-            | Q(author__username=self.request.user.username)
+        context['profile'] = get_object_or_404(
+            User,
+            username=self.kwargs[self.slug_url_kwarg]
         )
-        page = self.request.GET.get('page')
-        page_obj = get_page_obj(posts, page)
-        context['page_obj'] = page_obj
         return context
 
 
-class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UserMixin,
-                     UpdateView):
+class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     """
     User update class view for profile change page.
 
     Use blog/user.html template. Available only to profile owner.
     """
 
+    model = User
     form_class = ProfileChangeForm
     template_name = 'blog/user.html'
+    slug_field = 'username'
+    slug_url_kwarg = 'username'
 
     def test_func(self):
         return self.request.user.username == self.kwargs['username']
@@ -134,7 +137,7 @@ class PostDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["comments"] = self.object.comments.select_related('author')
+        context['comments'] = self.object.comments.select_related('author')
         context['form'] = CommentForm()
         return context
 
