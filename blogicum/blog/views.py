@@ -32,14 +32,13 @@ class CategoryListView(ListView):
     """
 
     queryset = Post.published_posts.prefetch_related('comments')
-    slug_url_kwarg = 'category_slug'
     template_name = 'blog/category.html'
     paginate_by = settings.POSTS_LIMIT
 
     def get_queryset(self):
         queryset = super().get_queryset()
         queryset = queryset.filter(
-            category__slug=self.kwargs[self.slug_url_kwarg]
+            category__slug=self.kwargs['category_slug']
         )
         return queryset
 
@@ -47,7 +46,7 @@ class CategoryListView(ListView):
         context = super().get_context_data(**kwargs)
         context['category'] = get_object_or_404(
             Category,
-            slug=self.kwargs[self.slug_url_kwarg],
+            slug=self.kwargs['category_slug'],
             is_published=True
         )
         return context
@@ -60,7 +59,6 @@ class UserListView(ListView):
     Profile owner can see all posts while other users can see only published.
     """
 
-    slug_url_kwarg = 'username'
     template_name = 'blog/profile.html'
     paginate_by = settings.POSTS_LIMIT
     queryset = Post.objects.select_related(
@@ -76,7 +74,7 @@ class UserListView(ListView):
         queryset = queryset.filter(
             IS_PUBLISHED_TRUE
             | Q(author__username=self.request.user.username),
-            author__username=self.kwargs[self.slug_url_kwarg]
+            author__username=self.kwargs['username']
         )
         return queryset
 
@@ -84,7 +82,7 @@ class UserListView(ListView):
         context = super().get_context_data(**kwargs)
         context['profile'] = get_object_or_404(
             User,
-            username=self.kwargs[self.slug_url_kwarg]
+            username=self.kwargs['username']
         )
         return context
 
